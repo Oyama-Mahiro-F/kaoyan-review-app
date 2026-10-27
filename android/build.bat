@@ -26,6 +26,7 @@ mkdir %ASSETS%
 xcopy /e /i /q "%ROOT%\www" "%ASSETS%\www" >nul
 xcopy /e /i /q "%ROOT%\data" "%ASSETS%\data" >nul
 del /q "%ASSETS%\data\_report.txt" 2>nul
+python -c "import io,sys,time,json; vc=int(sys.argv[1]); t=int(time.time()*1000); io.open(r'%ASSETS%\www\build_info.js','w').write('window.BUILD='+json.dumps({'v':vc,'vs':'1.'+str(vc),'t':t})+';'); io.open(r'%ROOT%\app_build.json','w').write(json.dumps({'vcode':vc,'version':'1.'+str(vc),'t':t}))" %VC%
 
 if exist %BUILD% rmdir /s /q %BUILD%
 mkdir %BUILD%

@@ -563,6 +563,15 @@ def sync_code():
         targets.append((p, "js/" + p.name))
     targets.append((www / "css" / "app.css", "css/app.css"))
     out = {"version": date.today().isoformat(), "t": int(time.time() * 1000), "files": {}}
+    build_meta = HERE.parent / "app_build.json"   # build.sh 构建时写入，含 vcode/version
+    if build_meta.exists():
+        try:
+            m = json.loads(build_meta.read_text(encoding="utf-8"))
+            if m.get("vcode"):
+                out["vcode"] = int(m["vcode"])
+                out["version"] = m.get("version") or out["version"]
+        except Exception:
+            pass
     dest_root = SITE / "appdata" / "code"
     for p, rel in targets:
         if not p.exists():

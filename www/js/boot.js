@@ -12,9 +12,14 @@
 
   var ov = null;
   try { ov = JSON.parse(localStorage.getItem(LS_KEY) || 'null'); } catch (e) { ov = null; }
-  if (ov && window.BUILD && ov.t && window.BUILD.t >= ov.t) {
-    localStorage.removeItem(LS_KEY);
-    ov = null;
+  // 新装/重打包的 APK 自带更新代码：内置版本号 >= 覆盖版本号时丢弃覆盖（按 versionCode 比对）
+  if (ov && window.BUILD) {
+    var bv = parseInt(window.BUILD.v) || 0;
+    var stale = (ov.vcode && bv >= ov.vcode) || (!ov.vcode && ov.t && window.BUILD.t >= ov.t);
+    if (stale) {
+      localStorage.removeItem(LS_KEY);
+      ov = null;
+    }
   }
 
   function loadBundled(src, cb) {

@@ -18,7 +18,8 @@ mkdir -p assets build
 cp -r "$ROOT/www" assets/www
 cp -r "$ROOT/data" assets/data
 rm -f assets/data/_report.txt
-printf 'window.BUILD={v:"%s",t:%s000};' "$VC" "$(date +%s)" > assets/www/build_info.js
+printf 'window.BUILD={v:"%s",vs:"1.%s",t:%s000};' "$VC" "$VC" "$(date +%s)" > assets/www/build_info.js
+printf '{"vcode":%s,"version":"1.%s","t":%s000}' "$VC" "$VC" "$(date +%s)" > "$ROOT/app_build.json"
 
 echo "[1/7] aapt2 compile"
 "$BT/aapt2.exe" compile --dir res -o build/res.zip
@@ -53,5 +54,6 @@ fi
 "$BT/apksigner.bat" sign --ks "$ROOT/keystore/kaoyan.jks" --ks-pass pass:kaoyan2026 \
   --key-pass pass:kaoyan2026 --out "$ROOT/dist/考研复习.apk" build/aligned.apk 2>/dev/null
 "$BT/apksigner.bat" verify "$ROOT/dist/考研复习.apk" 2>/dev/null
+cp "$ROOT/dist/考研复习.apk" "$ROOT/dist/kaoyan-review.apk"   # ASCII 名副本供 GitHub Release 上传
 echo ""
 echo "==== 构建成功: $ROOT/dist/考研复习.apk ($(du -h "$ROOT/dist/考研复习.apk" | cut -f1)) ===="
