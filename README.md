@@ -41,11 +41,23 @@
 
 ## 在线更新机制
 
-- 设置页「检查更新」：并行拉取数据清单 `appdata/index.json` 与代码清单 `appdata/app_index.json`（均带时间戳与 sha）
+- 设置页「检查更新」一次做三件事：
+  1. **数据更新**：`appdata/index.json`（sha 增量）→ 变更文件下载存 IndexedDB，立即生效
+  2. **代码更新**：`appdata/app_index.json`（**按 versionCode 比对**）→ 远端 vcode 大于本地（内置 BUILD.v / 当前覆盖 vcode）才整包拉取，存 localStorage，重启由 boot.js 启用
+  3. **新版本检测**：`appdata/app_release.json`（GitHub Release 元数据）→ 远端 vcode 大于内置时显示「下载 APK」按钮，跳系统浏览器下载安装
 - **双源择新**：jsDelivr 与 GitHub Pages 并行请求 manifest，取时间戳新的那份（规避 jsDelivr 对分支引用的缓存延迟）
-- 数据按 sha 增量下载存 IndexedDB；代码整包存 localStorage，重启由 boot.js 启用（覆盖执行失败自动回退内置）
-- 新装/重打包的 APK 自带更新代码（内置构建时间戳 ≥ 覆盖时间戳）时自动丢弃旧覆盖
-- 不参与在线覆盖：`index.html`（稳定引导页）、`boot.js`、`vendor/` 第三方库——改这些才需重打 APK
+- 新装/重打包的 APK 自带更新代码（内置 vcode ≥ 覆盖 vcode）时自动丢弃旧覆盖；设置页可随时"恢复内置"
+- 不参与在线覆盖：`index.html`（稳定引导页）、`boot.js`、`vendor/` 第三方库——改这些才随新版本 APK 发布
+
+## 发布新版本
+
+```bash
+./release.sh 9 "本版更新说明"
+```
+
+一条命令完成：构建 APK（versionCode=9 / versionName=1.9）→ 数据与代码清单盖 vcode 戳 →
+写 `site/appdata/app_release.json` → 仓库提交 + 打 tag → `gh release create` 挂载 APK → 推送站点清单。
+发布完成后，已装旧版的手机在设置页即可看到新版本并更新。
 
 ## 构建
 
@@ -55,7 +67,7 @@
 ```bash
 cd android
 bash build.sh 6          # Windows 侧也可用 build.bat
-# 产物 ../dist/考研复习.apk
+# 产物 ../dist/考研复习.apk（正式发版请改用仓库根的 ./release.sh <versionCode>）
 ```
 
 首次构建自动 `keytool` 生成 `keystore/kaoyan.jks`（口令在脚本内，**密钥文件不入库**——
