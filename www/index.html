@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="format-detection" content="telephone=no">
+<title>考研复习</title>
+<link rel="stylesheet" href="/www/vendor/katex/katex.min.css">
+<link rel="stylesheet" href="/www/css/app.css">
+</head>
+<body>
+<div id="app">
+  <header id="topbar">
+    <div id="topbar-title">今日复习</div>
+    <div id="topbar-right"></div>
+  </header>
+
+  <main id="page"></main>
+
+  <nav id="tabbar">
+    <a href="#/today" data-tab="today" class="tab"><span class="ico">📅</span><span>今日</span></a>
+    <a href="#/politics" data-tab="politics" class="tab"><span class="ico">📖</span><span>政治</span></a>
+    <a href="#/cards" data-tab="cards" class="tab"><span class="ico">🃏</span><span>背卡</span></a>
+    <a href="#/quiz" data-tab="quiz" class="tab"><span class="ico">✏️</span><span>错题</span></a>
+    <a href="#/notes" data-tab="notes" class="tab"><span class="ico">📚</span><span>笔记</span></a>
+    <a href="#/settings" data-tab="settings" class="tab"><span class="ico">⚙️</span><span>设置</span></a>
+  </nav>
+
+  <div id="toast"></div>
+</div>
+
+<script src="/www/vendor/marked.min.js"></script>
+<script src="/www/vendor/katex/katex.min.js"></script>
+<script src="/www/vendor/highlight.min.js"></script>
+<script src="/www/build_info.js"></script>
+<script src="/www/js/boot.js?v=2"></script>
+</body>
+</html>

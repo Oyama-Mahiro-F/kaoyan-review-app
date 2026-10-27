@@ -1,0 +1,15 @@
+# 构建产物与中间文件
+dist/
+android/build/
+android/assets/
+*.idsig
+
+# 签名密钥：绝不入库（丢失后无法覆盖安装，请自行私有备份）
+keystore/
+
+# 提取器本地输出（data/ 保留提交，便于开箱构建；_report.txt 为本机自检噪音）
+data/_report.txt
+
+# 系统杂项
+Thumbs.db
+.DS_Store
