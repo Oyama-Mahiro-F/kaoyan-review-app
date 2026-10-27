@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3D51C6"/>
+      <stop offset="1" stop-color="#1E2A6E"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 圆角渐变底 -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <!-- 复习循环箭头（顺时针 300° 圆弧 + 箭头，寓意循环复习） -->
+  <path d="M 256 62 A 56 56 0 1 1 207.5 90" fill="none"
+        stroke="#FFC72C" stroke-width="26" stroke-linecap="round"/>
+  <polygon points="-4,-21 24,0 -4,21" transform="translate(207.5,90) rotate(-60)" fill="#FFC72C"/>
+
+  <!-- 摊开的书（左页白、右页淡蓝，书脊分隔） -->
+  <path d="M256,228 C214,203 158,195 98,206 L98,370 C158,359 214,367 256,392 Z" fill="#FFFFFF"/>
+  <path d="M256,228 C298,203 354,195 414,206 L414,370 C354,359 298,367 256,392 Z" fill="#E7ECFC"/>
+  <line x1="256" y1="230" x2="256" y2="390" stroke="#C3CEEF" stroke-width="6"/>
+
+  <!-- 书本底衬（琥珀色，与箭头呼应） -->
+  <path d="M92,376 C158,365 212,372 256,396 C300,372 354,365 420,376 L420,400 C354,389 300,396 256,420 C212,396 158,389 92,400 Z"
+        fill="#FFC72C"/>
+</svg>

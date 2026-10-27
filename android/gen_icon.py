@@ -1,38 +1,58 @@
 # -*- coding: utf-8 -*-
-"""生成启动图标（简单几何图形：深蓝圆角底 + 白色书本/对勾意象）。"""
+r"""启动图标生成：android/icon.svg（手绘矢量）→ Edge 无头渲染 1024px → Pillow 裁圆角、出全密度 mipmap。
+
+用法：python gen_icon.py
+依赖：Windows 自带 Edge；Pillow。产物：res/mipmap-*/ic_launcher.png + icon-1024.png（备份）+ ../docs/icon-512.png
+"""
+import os
+import subprocess
+import sys
 from PIL import Image, ImageDraw
 
+HERE = os.path.dirname(os.path.abspath(__file__))
+SVG = os.path.join(HERE, "icon.svg")
+RAW = os.path.join(HERE, "icon-1024.png")
 SIZES = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
-OUT = __file__.rsplit("\\", 1)[0] + "/res"
 
-BG = (37, 60, 122, 255)      # 深蓝
-ACCENT = (255, 199, 44, 255) # 琥珀黄
-WHITE = (255, 255, 255, 255)
 
-for dpi, size in SIZES.items():
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    r = size // 5
-    # 圆角底
-    d.rounded_rectangle([0, 0, size - 1, size - 1], radius=r, fill=BG)
-    # 打开的书（两页）
-    cx, cy = size // 2, int(size * 0.46)
-    w, h = int(size * 0.58), int(size * 0.30)
-    d.polygon([(cx - w, cy - h // 3), (cx, cy - h // 6), (cx, cy + h), (cx - w, cy + h * 2 // 3)], fill=WHITE)
-    d.polygon([(cx + w, cy - h // 3), (cx, cy - h // 6), (cx, cy + h), (cx + w, cy + h * 2 // 3)], fill=(230, 236, 250, 255))
-    # 书脊线
-    d.line([(cx, cy - h // 6), (cx, cy + h)], fill=BG, width=max(2, size // 48))
-    # 底部对勾（复习完成意象）
-    lw = max(3, size // 16)
-    x1, y1 = int(size * 0.34), int(size * 0.70)
-    x2, y2 = int(size * 0.46), int(size * 0.82)
-    x3, y3 = int(size * 0.68), int(size * 0.58)
-    d.line([(x1, y1), (x2, y2)], fill=ACCENT, width=lw)
-    d.line([(x2, y2), (x3, y3)], fill=ACCENT, width=lw)
-    d.ellipse([x1 - lw * 2, y1 - lw * 2, x1 + lw * 2, y1 + lw * 2], fill=ACCENT)
-    d.ellipse([x3 - lw * 2, y3 - lw * 2, x3 + lw * 2, y3 + lw * 2], fill=ACCENT)
-    import os
-    folder = f"{OUT}/mipmap-{dpi}"
-    os.makedirs(folder, exist_ok=True)
-    img.save(f"{folder}/ic_launcher.png")
-    print(f"mipmap-{dpi}/ic_launcher.png {size}x{size}")
+def find_edge():
+    for p in (r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+              r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"):
+        if os.path.exists(p):
+            return p
+    return None
+
+
+def render():
+    edge = find_edge()
+    if not edge:
+        sys.exit("未找到 Edge，无法渲染 icon.svg")
+    url = "file:///" + SVG.replace("\\", "/")
+    subprocess.run([edge, "--headless", "--disable-gpu",
+                    "--screenshot=" + RAW, "--window-size=1024,1024",
+                    "--hide-scrollbars", url],
+                   check=True, capture_output=True, timeout=60)
+
+
+def finish():
+    img = Image.open(RAW).convert("RGBA")
+    if img.size != (1024, 1024):
+        img = img.resize((1024, 1024), Image.LANCZOS)
+    # 圆角 alpha 蒙版（512 画布 rx=112 → 1024 下 r=224）
+    mask = Image.new("L", (1024, 1024), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, 1023, 1023], radius=224, fill=255)
+    img.putalpha(mask)
+    img.save(RAW)
+    for dpi, size in SIZES.items():
+        folder = os.path.join(HERE, "res", "mipmap-" + dpi)
+        os.makedirs(folder, exist_ok=True)
+        img.resize((size, size), Image.LANCZOS).save(os.path.join(folder, "ic_launcher.png"))
+        print(f"mipmap-{dpi}/ic_launcher.png {size}x{size}")
+    preview = os.path.join(HERE, "..", "docs", "icon-512.png")
+    img.resize((512, 512), Image.LANCZOS).save(preview)
+    print("docs/icon-512.png（README 预览）")
+
+
+if __name__ == "__main__":
+    render()
+    finish()

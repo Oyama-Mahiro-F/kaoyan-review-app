@@ -1,5 +1,7 @@
 # 考研复习 App
 
+<img src="docs/icon-512.png" width="96" align="right" alt="考研复习 App 图标"/>
+
 把个人考研笔记库（408 四科 + 数学 + 英语 + 政治）变成一部安卓手机上的**离线复习应用**。
 单 Activity WebView 壳 + 本地 HTML/JS 单页应用，**无 Gradle、无 AndroidX、无 maven 依赖**——`aapt2 → javac → d8 → zipalign → apksigner` 六步脚本直出 APK（约 4.3MB）。
 
