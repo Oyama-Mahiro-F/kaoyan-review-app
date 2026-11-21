@@ -16,6 +16,7 @@
   /* ================= 路由 ================= */
   var routes = {
     '': renderToday, today: renderToday,
+    's/408': renderSubject, 's/数学': renderSubject, 's/英语': renderSubject, 's/政治': renderSubject,
     politics: renderPolitics, 'politics/day': renderPolDay,
     cards: renderCardsHub,
     'cards/words': renderWordsSession,
@@ -28,12 +29,46 @@
     notes: renderNotes, 'notes/view': renderNoteView,
     settings: renderSettings
   };
-  var TABS = { today: '今日复习', politics: '政治背诵', cards: '背卡', quiz: '错题自测', notes: '笔记', settings: '设置' };
+  var TABS = {
+    today: '今日复习', 's/408': '408', 's/数学': '数学', 's/英语': '英语', 's/政治': '政治',
+    politics: '政治背诵', cards: '背卡', quiz: '错题自测', notes: '笔记', settings: '设置'
+  };
+
+  /* 子页面归属的科目 tab（底部栏按科目划分后的高亮规则） */
+  function tabFor(base, q) {
+    if (base.indexOf('s/') === 0) return base;
+    switch (base) {
+      case 'politics': case 'politics/day': return 's/政治';
+      case 'cards/words': case 'cards/wordbook': case 'cards/wbtrain': return 's/英语';
+      case 'cards/k408': case 'quiz': case 'quiz/sec': return 's/408';
+      case 'cards/decks': return (q && q.sub) ? 's/' + q.sub : '';
+      case 'cards/deck': {
+        var dk = D.cards && D.cards.decks[+(q.arg2 || q.deck || 0)];
+        return dk ? 's/' + dk.file.split('/')[0] : '';
+      }
+      case 'cards/qa': case 'cards/check': return (q && q.sub) ? 's/' + q.sub : '';
+      case 'cards/qalist': {
+        var mm = (q.arg2 || q.ch || '0.0').split('.');
+        var ss = D.selfcheck && D.selfcheck.subjects[+mm[0]];
+        return ss ? 's/' + ss.group : '';
+      }
+      case 'notes': case 'notes/view': {
+        var p = (q && q.sub) || (base === 'notes/view' ? (q.arg2 || q.path || '') : '');
+        try { p = decodeURIComponent(p); } catch (e) {}
+        var pref = String(p).split('/')[0];
+        return SUBJECT_TABS[pref] ? 's/' + pref : '';
+      }
+      default: return base;
+    }
+  }
 
   function nav() {
     var h = location.hash.replace(/^#\/?/, '');
     var parts = h.split('?');
-    var seg = parts[0].split('/');
+    // 中文科目路由（#/s/数学）会被浏览器百分号编码，这里统一解码
+    var seg = parts[0].split('/').map(function (v) {
+      try { return decodeURIComponent(v); } catch (e) { return v; }
+    });
     var base = seg.length > 1 ? seg[0] + '/' + seg[1] : seg[0];
     var fn = routes[base] || routes[parts[0]] || renderToday;
     var q = {};
@@ -48,7 +83,7 @@
     seg.forEach(function (v, i) { q['arg' + i] = v; });
     window.scrollTo(0, 0);
     fn(q, seg);
-    var tab = ['politics/day', 'cards/words', 'cards/deck', 'cards/qalist', 'cards/decks', 'cards/qa', 'cards/check', 'cards/wordbook', 'cards/wbtrain', 'cards/k408', 'quiz/sec', 'notes/view'].indexOf(base) >= 0 ? seg[0] : base;
+    var tab = tabFor(base, q);
     document.querySelectorAll('#tabbar .tab').forEach(function (a) {
       a.classList.toggle('on', a.dataset.tab === tab);
     });
@@ -57,6 +92,123 @@
   }
   function setTopBack(label) {
     topRight.innerHTML = '<button class="ghost" style="padding:4px 12px;font-size:13px" onclick="history.back()">‹ ' + esc(label || '返回') + '</button>';
+  }
+
+  /* ================= 科目枢纽页（下方栏按科目划分） ================= */
+  var SUBJECT_TABS = {
+    '408': { icon: '💻', name: '408 计算机专业课' },
+    '数学': { icon: '📐', name: '数学一' },
+    '英语': { icon: '🔤', name: '英语一' },
+    '政治': { icon: '📖', name: '考研政治' }
+  };
+  function subjectDeckStats(sub) {
+    var decks = 0, cards = 0, due = 0;
+    (D.cards ? D.cards.decks : []).forEach(function (dk, di) {
+      if (dk.subject !== sub) return;
+      decks++;
+      dk.cards.forEach(function (c, ci) {
+        cards++;
+        if (S.isDue(P.cards[di + '#' + ci])) due++;
+      });
+    });
+    return { decks: decks, cards: cards, due: due };
+  }
+  function quiz408Stats() {
+    var total = 0, done = 0, due = 0;
+    (D.quiz ? D.quiz.sections : []).forEach(function (s) {
+      s.questions.concat(s.freeform || []).forEach(function (qq) {
+        total++;
+        var e = P.quiz[s.subject + '|' + s.section + '|' + qq.num];
+        if (e) done++;
+        if (e && S.isDue(e)) due++;
+      });
+    });
+    return { total: total, done: done, due: due };
+  }
+  function selfcheckStats(group) {
+    var qa = 0, items = 0, subs = 0;
+    (D.selfcheck ? D.selfcheck.subjects : []).forEach(function (s) {
+      if (s.group !== group) return;
+      subs++;
+      s.chapters.forEach(function (ch) { qa += ch.qas.length; items += ch.items.length; });
+    });
+    return { subs: subs, qa: qa, items: items };
+  }
+  function countManifestNotes(sub) {
+    var m = D.manifest;
+    if (!m) return 0;
+    var s = null;
+    (m.subjects || []).forEach(function (x) { if (x.name === sub) s = x; });
+    if (!s) return 0;
+    var n = 0;
+    (function walk(node) { if (node.path) { n++; return; } (node.children || []).forEach(walk); })(s);
+    return n;
+  }
+
+  function renderSubject(q, seg) {
+    var sub = seg[1];
+    var cfg = SUBJECT_TABS[sub];
+    if (!cfg) { page.innerHTML = '<div class="empty">未知科目</div>'; return; }
+    var B = [];
+
+    /* —— 科目专属块 —— */
+    if (sub === '政治') {
+      var day = S.politicsToday();
+      var pst = P.politics[day.day] || { checks: {} };
+      P.politics[day.day] = pst;
+      B.push('<section class="block"><h3 class="sec">📖 今日背诵<span class="hint">' +
+        (day.round === 2 ? '第二遍' : '第一遍') + ' · ' + day.date + '</span></h3>' +
+        '<div style="font-size:14px"><b>第 ' + day.day + ' 天</b>（手册 ' + esc(day.pages) + '）· ' + esc(day.summary).slice(0, 38) + '</div>' +
+        '<div class="checkline">' + (day.checkItems || []).map(function (c) {
+          var on = pst.checks && pst.checks[c];
+          return '<span class="chk ' + (on ? 'on' : '') + '" data-pol="' + day.day + '" data-chk="' + esc(c) + '">' + (on ? '✓ ' : '') + esc(c) + '</span>';
+        }).join('') + '</div>' +
+        '<div class="row" style="margin-top:8px"><button class="primary" onclick="location.hash=\'#/politics/day?' + day.day + '\'">进入今天</button>' +
+        '<button onclick="location.hash=\'#/politics\'">28 天计划</button>' +
+        '<span class="muted">已完成 ' + countPolDone() + '/28 天</span></div></section>');
+    }
+    if (sub === '英语') {
+      buildWordQueue();
+      var learned = Object.keys(P.words).length, wsTotal = D.words ? D.words.words.length : 0;
+      var wbN = Object.keys(P.wordbook).length;
+      var wbDone = Object.keys(P.wordbook).filter(function (sid) { return S.ebDone(P.words[sid]); }).length;
+      B.push('<section class="block"><h3 class="sec">🔤 英语单词<span class="hint">艾宾浩斯 1/2/4/7/15 天</span></h3>' +
+        '<div class="row"><button class="primary" onclick="location.hash=\'#/cards/words\'">开始背词</button>' +
+        '<button onclick="location.hash=\'#/cards/wordbook\'">📕 生词本 ' + wbN + '</button>' +
+        '<span class="muted">今日 ' + P.settings.dailyWords + ' 词 = 复习 ' + wordMix.due + ' + 新词 ' + wordMix.fresh + '</span></div>' +
+        '<div style="margin-top:8px"><progress value="' + learned + '" max="' + wsTotal + '"></progress></div>' +
+        '<div class="muted" style="margin-top:4px">已学 ' + learned + '/' + wsTotal + ' · 生词本已掌握 ' + wbDone + '</div></section>');
+    }
+    if (sub === '408') {
+      var qs = quiz408Stats();
+      var k = k408Stats();
+      B.push('<section class="block"><h3 class="sec">✏️ 错题自测<span class="hint">已做 ' + qs.done + '/' + qs.total + '</span></h3>' +
+        '<div class="row"><button class="primary" onclick="location.hash=\'#/quiz\'">进入题库</button>' +
+        '<span class="muted">四科 ' + qs.total + ' 题 · 到期重现 ' + qs.due + '</span></div></section>');
+      B.push('<section class="block"><h3 class="sec">🎲 408 随机速记<span class="hint">' + k.total + ' 个知识点 · 到期 ' + k.due + '</span></h3>' +
+        '<div class="row"><button class="primary" onclick="location.hash=\'#/cards/k408\'">随机开刷</button>' +
+        '<span class="muted">科目·章节范围可选（章节可多选）· 先回想再揭示</span></div></section>');
+    }
+    if (sub === '408' || sub === '数学') {
+      var sc = selfcheckStats(sub);
+      B.push('<section class="block"><h3 class="sec">❓ 自查问答与清单<span class="hint">' + sc.subs + ' 科</span></h3>' +
+        '<div class="row wrap"><button onclick="location.hash=\'#/cards/qa?sub=' + sub + '\'">问答 ' + sc.qa + ' 组</button>' +
+        '<button onclick="location.hash=\'#/cards/check?sub=' + sub + '\'">三态清单 ' + sc.items + ' 条</button></div></section>');
+    }
+
+    /* —— 公共块：速记卡 —— */
+    var ds = subjectDeckStats(sub);
+    if (ds.decks) {
+      B.push('<section class="block"><h3 class="sec">🃏 知识速记卡<span class="hint">' + ds.decks + ' 套 · ' + ds.cards + ' 张</span></h3>' +
+        '<div class="row"><button class="primary" onclick="location.hash=\'#/cards/decks?sub=' + sub + '\'">选卡组</button>' +
+        '<span class="muted">到期 ' + ds.due + ' 张</span></div></section>');
+    }
+    /* —— 公共块：笔记 —— */
+    var nn = countManifestNotes(sub);
+    B.push('<section class="block"><h3 class="sec">📚 笔记<span class="hint">' + nn + ' 篇 · 离线可读</span></h3>' +
+      '<div class="row"><button class="primary" onclick="location.hash=\'#/notes?sub=' + sub + '\'">浏览与搜索</button></div></section>');
+
+    page.innerHTML = B.join('');
   }
 
   /* ================= 今日 ================= */
@@ -343,13 +495,15 @@
   }
 
   /* ---------- 知识卡组 ---------- */
-  function renderDecks() {
+  function renderDecks(q) {
     setTopBack('背卡');
+    var filterSub = q && q.sub;
     var bySub = {};
     (D.cards ? D.cards.decks : []).forEach(function (dk, i) {
+      if (filterSub && dk.subject !== filterSub) return;
       (bySub[dk.subject] = bySub[dk.subject] || []).push(Object.assign({ idx: i }, dk));
     });
-    var html = '';
+    var html = filterSub ? '<section class="block" style="padding:10px 16px"><span class="muted">仅显示「' + esc(filterSub) + '」的卡组 · <a href="#/cards/decks" style="color:var(--blue)">查看全部科目</a></span></section>' : '';
     Object.keys(bySub).forEach(function (sub) {
       html += '<section class="block"><h3 class="sec">' + esc(sub) + '</h3>' + bySub[sub].map(function (dk) {
         var due = dk.cards.filter(function (c, ci) { return S.isDue(P.cards[dk.idx + '#' + ci]); }).length;
@@ -552,10 +706,12 @@
   }
 
   /* ---------- 自查问答 ---------- */
-  function renderQaList() {
+  function renderQaList(q) {
     setTopBack('背卡');
-    var html = '';
+    var filterSub = q && q.sub;
+    var html = filterSub ? '<section class="block" style="padding:10px 16px"><span class="muted">仅显示「' + esc(filterSub) + '」· <a href="#/cards/qa" style="color:var(--blue)">查看全部科目</a></span></section>' : '';
     (D.selfcheck ? D.selfcheck.subjects : []).forEach(function (sub, si) {
+      if (filterSub && sub.group !== filterSub) return;
       html += '<section class="block"><h3 class="sec">' + esc(sub.group + ' · ' + sub.subject) + '</h3>';
       sub.chapters.forEach(function (ch, ci) {
         html += '<div class="s" style="display:flex;gap:8px;padding:9px 2px;border-bottom:1px solid var(--line);cursor:pointer" onclick="location.hash=\'#/cards/qalist?' + si + '.' + ci + '\'">' +
@@ -662,10 +818,12 @@
   }
 
   /* ---------- 三态自查清单 ---------- */
-  function renderChecklist() {
+  function renderChecklist(q) {
     setTopBack('背卡');
-    var html = '';
+    var filterSub = q && q.sub;
+    var html = filterSub ? '<section class="block" style="padding:10px 16px"><span class="muted">仅显示「' + esc(filterSub) + '」· <a href="#/cards/check" style="color:var(--blue)">查看全部科目</a></span></section>' : '';
     (D.selfcheck ? D.selfcheck.subjects : []).forEach(function (sub, si) {
+      if (filterSub && sub.group !== filterSub) return;
       sub.chapters.forEach(function (ch, ci) {
         var done = ch.items.filter(function (_, ii) { return P.checklist[si + '.' + ci + '.' + ii] === 1; }).length;
         html += '<details class="block" style="background:#fff;border-radius:14px;padding:10px 14px;margin-bottom:10px"><summary style="cursor:pointer;font-weight:600;font-size:15px">' +
@@ -787,19 +945,24 @@
 
   /* ================= 笔记 ================= */
   var noteScroll = {};
-  function renderNotes() {
+  function renderNotes(q) {
     setTopBack('');
     S.ensureLazy('manifest.json');
     S.ensureLazy('notes.json').then(function () {
-      var tree = buildTree();
-      var subjChips = (D.manifest ? D.manifest.subjects : []).map(function (s, i) {
-        return '<button class="' + (i === 0 ? 'on' : '') + '" data-sub="' + i + '">' + s.icon + ' ' + esc(s.name) + '</button>';
+      var subs = D.manifest ? D.manifest.subjects : [];
+      var startIdx = 0;
+      if (q && q.sub) {
+        subs.forEach(function (s, i) { if (s.name === q.sub) startIdx = i; });
+      }
+      var tree = subTree(startIdx);
+      var subjChips = subs.map(function (s, i) {
+        return '<button class="' + (i === startIdx ? 'on' : '') + '" data-sub="' + i + '">' + s.icon + ' ' + esc(s.name) + '</button>';
       }).join('');
       page.innerHTML =
         '<section class="block"><input type="text" id="nsearch" placeholder="搜索全部笔记正文…（公式不支持）">' +
         '<div class="subtabs" style="margin-top:8px">' + subjChips + '</div><div id="nresult"></div></section>' +
         '<section class="block" id="ntree">' + tree + '</section>';
-      var curSub = 0;
+      var curSub = startIdx;
       document.querySelectorAll('[data-sub]').forEach(function (b) {
         b.onclick = function () {
           curSub = +b.dataset.sub;
